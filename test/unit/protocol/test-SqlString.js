@@ -1,16 +1,31 @@
 var common    = require('../../common');
 var test      = require('utest');
 var assert    = require('assert');
-var SqlString = require(common.lib + '/protocol/SqlString');
+var SqlString = common.SqlString;
 
 test('SqlString.escapeId', {
+  'value is quoted': function() {
+    assert.equal('`id`', SqlString.escapeId('id'));
+  },
+
+  'value containing escapes is quoted': function() {
+    assert.equal('`i``d`', SqlString.escapeId('i`d'));
+  },
+
+  'value containing separator is quoted': function() {
+    assert.equal('`id1`.`id2`', SqlString.escapeId('id1.id2'));
+  },
+  'value containing separator and escapes is quoted': function() {
+    assert.equal('`id``1`.`i``d2`', SqlString.escapeId('id`1.i`d2'));
+  },
+
   'arrays are turned into lists': function() {
     assert.equal(SqlString.escapeId(['a', 'b', 't.c']), "`a`, `b`, `t`.`c`");
   },
 
   'nested arrays are flattened': function() {
     assert.equal(SqlString.escapeId(['a', ['b', ['t.c']]]), "`a`, `b`, `t`.`c`");
-  },
+  }
 });
 
 test('SqlString.escape', {
@@ -61,38 +76,47 @@ test('SqlString.escape', {
 
   '\0 gets escaped': function() {
     assert.equal(SqlString.escape('Sup\0er'), "'Sup\\0er'");
+    assert.equal(SqlString.escape('Super\0'), "'Super\\0'");
   },
 
   '\b gets escaped': function() {
     assert.equal(SqlString.escape('Sup\ber'), "'Sup\\ber'");
+    assert.equal(SqlString.escape('Super\b'), "'Super\\b'");
   },
 
   '\n gets escaped': function() {
     assert.equal(SqlString.escape('Sup\ner'), "'Sup\\ner'");
+    assert.equal(SqlString.escape('Super\n'), "'Super\\n'");
   },
 
   '\r gets escaped': function() {
     assert.equal(SqlString.escape('Sup\rer'), "'Sup\\rer'");
+    assert.equal(SqlString.escape('Super\r'), "'Super\\r'");
   },
 
   '\t gets escaped': function() {
     assert.equal(SqlString.escape('Sup\ter'), "'Sup\\ter'");
+    assert.equal(SqlString.escape('Super\t'), "'Super\\t'");
   },
 
   '\\ gets escaped': function() {
     assert.equal(SqlString.escape('Sup\\er'), "'Sup\\\\er'");
+    assert.equal(SqlString.escape('Super\\'), "'Super\\\\'");
   },
 
   '\u001a (ascii 26) gets replaced with \\Z': function() {
     assert.equal(SqlString.escape('Sup\u001aer'), "'Sup\\Zer'");
+    assert.equal(SqlString.escape('Super\u001a'), "'Super\\Z'");
   },
 
   'single quotes get escaped': function() {
     assert.equal(SqlString.escape('Sup\'er'), "'Sup\\'er'");
+    assert.equal(SqlString.escape('Super\''), "'Super\\''");
   },
 
   'double quotes get escaped': function() {
     assert.equal(SqlString.escape('Sup"er'), "'Sup\\\"er'");
+    assert.equal(SqlString.escape('Super"'), "'Super\\\"'");
   },
 
   'dates are converted to YYYY-MM-DD HH:II:SS.sss': function() {
@@ -140,16 +164,31 @@ test('SqlString.format', {
     assert.equal(sql, "'hello?' and 'b'");
   },
 
+  'undefined is ignored': function () {
+    var sql = SqlString.format('?', undefined, false);
+    assert.equal(sql, '?');
+  },
+
   'objects is converted to values': function () {
-    var sql = SqlString.format('?', { 'hello': 'world' }, false)
-    assert.equal(sql, "`hello` = 'world'")
+    var sql = SqlString.format('?', { 'hello': 'world' }, false);
+    assert.equal(sql, "`hello` = 'world'");
   },
 
   'objects is not converted to values': function () {
-    var sql = SqlString.format('?', { 'hello': 'world' }, true)
-    assert.equal(sql, "'[object Object]'")
+    var sql = SqlString.format('?', { 'hello': 'world' }, true);
+    assert.equal(sql, "'[object Object]'");
 
-    var sql = SqlString.format('?', { toString: function () { return 'hello' } }, true)
-    assert.equal(sql, "'hello'")
+    var sql = SqlString.format('?', { toString: function () { return 'hello'; } }, true);
+    assert.equal(sql, "'hello'");
+  },
+
+  'sql is untouched if no values are provided': function () {
+    var sql = SqlString.format('SELECT ??');
+    assert.equal(sql, 'SELECT ??');
+  },
+
+  'sql is untouched if values are provided but there are no placeholders': function () {
+    var sql = SqlString.format('SELECT COUNT(*) FROM table', ['a', 'b']);
+    assert.equal(sql, 'SELECT COUNT(*) FROM table');
   }
 });

@@ -1,7 +1,7 @@
 var common = require('../../common');
 var test   = require('utest');
 var assert = require('assert');
-var Parser = require(common.lib + '/protocol/Parser');
+var Parser = common.Parser;
 
 function packet(bytes) {
   var buffer = new Buffer(bytes);
@@ -143,5 +143,5 @@ test('Parser', {
 
     var str = parser.parsePacketTerminatedString();
     assert.equal(str, 'Hi');
-  },
+  }
 });
